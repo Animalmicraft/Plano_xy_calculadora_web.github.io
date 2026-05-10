@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plano Cartesiano — Calculadora de Pendientes</title>
+<style>
+  :root {
+    --bg:        #0d1117;
+    --panel:     #161b22;
+    --border:    #30363d;
+    --accent:    #58a6ff;
+    --accent2:   #f78166;
+    --accent3:   #3fb950;
+    --accent4:   #d2a8ff;
+    --text:      #e6edf3;
+    --dim:       #8b949e;
+    --grid:      #21262d;
+    --axis:      #484f58;
+    --zero:      #6e7681;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Consolas', 'Courier New', monospace;
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  /* ── Panel izquierdo ── */
+  #panel {
+    width: 280px;
+    min-width: 280px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  #panel::-webkit-scrollbar { width: 4px; }
+  #panel::-webkit-scrollbar-track { background: var(--panel); }
+  #panel::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .panel-title {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: bold;
+    text-align: center;
+    padding: 16px 12px 2px;
+  }
+  .panel-sub {
+    color: var(--dim);
+    font-size: 9px;
+    text-align: center;
+    padding-bottom: 12px;
+  }
+
+  .sep {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 6px 12px;
+  }
+
+  .section-label {
+    font-size: 8px;
+    color: var(--dim);
+    padding: 6px 14px 2px;
+    letter-spacing: 0.08em;
+  }
+
+  /* Modos */
+  .mode-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 3px 20px;
+    cursor: pointer;
+    font-size: 9px;
+    color: var(--text);
+  }
+  .mode-option input[type=radio] {
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  /* Inputs */
+  .input-block { padding: 8px 14px 0; }
+  .input-block label {
+    display: block;
+    font-size: 9px;
+    color: var(--text);
+    margin-bottom: 3px;
+    margin-top: 8px;
+  }
+  .input-block label:first-child { margin-top: 0; }
+
+  input[type=number], input[type=text] {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 5px 8px;
+    font-family: inherit;
+    font-size: 11px;
+    outline: none;
+    transition: border-color .15s;
+  }
+  input[type=number]:focus, input[type=text]:focus {
+    border-color: var(--accent);
+  }
+  /* Quitar flechas de number en Chrome/Safari */
+  input[type=number]::-webkit-inner-spin-button,
+  input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+  input[type=number] { -moz-appearance: textfield; }
+
+  /* Botones */
+  .btn-row { padding: 8px 14px; display: flex; flex-direction: column; gap: 5px; }
+  .btn {
+    width: 100%;
+    border: none;
+    border-radius: 4px;
+    padding: 7px 10px;
+    font-family: inherit;
+    font-size: 10px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: opacity .15s, transform .1s;
+  }
+  .btn:active { transform: scale(.97); opacity: .85; }
+  .btn-row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; padding: 4px 14px; }
+
+  /* Resultados */
+  #result-box {
+    margin: 0 14px;
+    background: var(--bg);
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    padding: 8px;
+    font-size: 9px;
+    line-height: 1.7;
+    color: var(--text);
+    min-height: 80px;
+    white-space: pre-wrap;
+  }
+
+  /* Lista de líneas */
+  #lines-list { padding: 4px 14px 12px; flex: 1; overflow-y: auto; }
+  .line-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 0;
+    font-size: 9px;
+  }
+  .line-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .line-label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .line-remove {
+    background: none;
+    border: none;
+    color: var(--accent2);
+    cursor: pointer;
+    font-size: 11px;
+    line-height: 1;
+    padding: 0 2px;
+    font-family: inherit;
+  }
+  .line-remove:hover { opacity: .7; }
+
+  /* Zoom label */
+  #zoom-label {
+    font-size: 9px;
+    color: var(--accent4);
+    padding: 2px 18px 6px;
+  }
+
+  /* ── Canvas area ── */
+  #canvas-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  canvas {
+    display: block;
+    flex: 1;
+    cursor: crosshair;
+    touch-action: none;
+  }
+
+  #statusbar {
+    background: var(--panel);
+    border-top: 1px solid var(--border);
+    font-size: 9px;
+    color: var(--dim);
+    padding: 4px 10px;
+    white-space: nowrap;
+    overflow: hidden;
+  }
+
+  /* Hidden frame switching */
+  .input-frame { display: none; }
+  .input-frame.active { display: block; }
+
+  /* Responsive mobile */
+  @media (max-width: 640px) {
+    body { flex-direction: column; }
+    #panel { width: 100%; min-width: unset; height: auto; max-height: 45vh; border-right: none; border-bottom: 1px solid var(--border); }
+    #canvas-wrap { flex: 1; min-height: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════ PANEL IZQUIERDO ═══════════════════════ -->
+<div id="panel">
+  <div class="panel-title">Calculadora</div>
+  <div class="panel-sub">Pendientes &amp; Intersecciones</div>
+
+  <hr class="sep">
+  <div class="section-label">MODO</div>
+
+  <label class="mode-option">
+    <input type="radio" name="modo" value="mb" checked> y = mx + b &nbsp;(pendiente-intersección)
+  </label>
+  <label class="mode-option">
+    <input type="radio" name="modo" value="2p"> Dos puntos &nbsp;(x₁,y₁) → (x₂,y₂)
+  </label>
+  <label class="mode-option">
+    <input type="radio" name="modo" value="pt"> Solo puntos &nbsp;(graficar puntos)
+  </label>
+
+  <hr class="sep">
+
+  <!-- Frame mb -->
+  <div id="frame-mb" class="input-block input-frame active">
+    <label>Pendiente &nbsp; m</label>
+    <input type="number" id="ent-m" value="1" step="any">
+    <label>Intersección &nbsp; b &nbsp;(eje Y)</label>
+    <input type="number" id="ent-b" value="0" step="any">
+  </div>
+
+  <!-- Frame 2p -->
+  <div id="frame-2p" class="input-block input-frame">
+    <label>x₁</label><input type="number" id="ent-x1" value="0" step="any">
+    <label>y₁</label><input type="number" id="ent-y1" value="0" step="any">
+    <label>x₂</label><input type="number" id="ent-x2" value="1" step="any">
+    <label>y₂</label><input type="number" id="ent-y2" value="1" step="any">
+  </div>
+
+  <!-- Frame punto -->
+  <div id="frame-pt" class="input-block input-frame">
+    <label>x</label><input type="number" id="ent-px" value="0" step="any">
+    <label>y</label><input type="number" id="ent-py" value="0" step="any">
+  </div>
+
+  <div class="btn-row">
+    <button class="btn" style="background:#58a6ff;color:#0d1117" onclick="agregar()">Agregar →</button>
+    <button class="btn" style="background:#f78166;color:#0d1117" onclick="limpiar()">Limpiar todo</button>
+    <button class="btn" style="background:#3fb950;color:#0d1117" onclick="centrar()">Centrar vista</button>
+  </div>
+
+  <hr class="sep">
+  <div class="section-label">RESULTADOS</div>
+  <div id="result-box"></div>
+
+  <hr class="sep">
+  <div class="section-label">ZOOM</div>
+  <div id="zoom-label">1 unidad = 50 px &nbsp;(1:1)</div>
+  <div class="btn-row-2">
+    <button class="btn" style="background:#d2a8ff;color:#0d1117" onclick="zoomIn()">Zoom +</button>
+    <button class="btn" style="background:#d2a8ff;color:#0d1117" onclick="zoomOut()">Zoom −</button>
+  </div>
+
+  <hr class="sep">
+  <div class="section-label">LÍNEAS</div>
+  <div id="lines-list"></div>
+</div>
+
+<!-- ═══════════════════════ CANVAS ═══════════════════════ -->
+<div id="canvas-wrap">
+  <canvas id="cv"></canvas>
+  <div id="statusbar">Listo</div>
+</div>
+
+<script>
+// ─── Colores ───────────────────────────────────────────────────────────────
+const LINE_COLORS = ['#58a6ff','#3fb950','#f78166','#d2a8ff',
+                     '#ffa657','#79c0ff','#56d364','#ff7b72'];
+const BG        = '#0d1117';
+const GRID_MAIN = '#21262d';
+const GRID_SUB  = '#1a1f27';
+const AXIS_COL  = '#484f58';
+const ZERO_COL  = '#6e7681';
+const TEXT_DIM  = '#8b949e';
+
+// ─── Estado ───────────────────────────────────────────────────────────────
+let zoom     = 50;      // px por unidad matemática — MISMO en X e Y (1:1 exacto)
+let offsetX  = 0;       // centro del viewport en unidades matemáticas
+let offsetY  = 0;
+let lineas   = [];      // array de objetos {tipo, color, ...}
+let dragging = false;
+let dragStartPx = null;
+let dragStartOff = null;
+
+// ─── Canvas ───────────────────────────────────────────────────────────────
+const cv  = document.getElementById('cv');
+const ctx = cv.getContext('2d');
+
+function resize() {
+  cv.width  = cv.offsetWidth;
+  cv.height = cv.offsetHeight;
+  redraw();
+}
+new ResizeObserver(resize).observe(cv);
+
+// ─── Conversiones px ↔ unidad  (1:1: mismo zoom para X e Y) ─────────────
+const u2px = (u, axis) =>
+  axis === 'x'
+    ? (u - offsetX) * zoom + cv.width  / 2
+    : -(u - offsetY) * zoom + cv.height / 2;
+
+const px2u = (p, axis) =>
+  axis === 'x'
+    ? (p - cv.width  / 2) / zoom + offsetX
+    : -((p - cv.height / 2) / zoom) + offsetY;
+
+// ─── Paso de grilla adaptativo ────────────────────────────────────────────
+function gridStep() {
+  const raw = 60 / zoom;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  for (const m of [1, 2, 5, 10]) {
+    const c = mag * m;
+    if (c >= raw) return c;
+  }
+  return mag * 10;
+}
+
+// ─── Formato numérico ─────────────────────────────────────────────────────
+function fmt(v, step) {
+  if (Math.abs(v) < 1e-9) return '0';
+  if (step >= 1 && Math.abs(v) < 1e6) return String(Math.round(v));
+  return parseFloat(v.toPrecision(3)).toString();
+}
+
+// ─── Dibujado principal ───────────────────────────────────────────────────
+function redraw() {
+  const W = cv.width, H = cv.height;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = BG;
+  ctx.fillRect(0, 0, W, H);
+
+  const xMin = px2u(0, 'x'), xMax = px2u(W, 'x');
+  const yMin = px2u(H, 'y'), yMax = px2u(0, 'y');
+  const step = gridStep();
+
+  // Grilla secundaria
+  const sub = step / 5;
+  if (sub * zoom >= 6) drawGrid(xMin, xMax, yMin, yMax, sub, GRID_SUB);
+
+  // Grilla principal
+  drawGrid(xMin, xMax, yMin, yMax, step, GRID_MAIN);
+
+  // Ejes
+  const ox = u2px(0, 'x'), oy = u2px(0, 'y');
+  ctx.strokeStyle = AXIS_COL;
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(0, oy); ctx.lineTo(W, oy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ox, 0); ctx.lineTo(ox, H); ctx.stroke();
+
+  // Etiquetas
+  drawLabels(xMin, xMax, yMin, yMax, step, ox, oy);
+
+  // Origen
+  if (ox >= 0 && ox <= W && oy >= 0 && oy <= H) {
+    ctx.fillStyle = ZERO_COL;
+    ctx.font = '10px Consolas, monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText('0', ox + 5, oy + 4);
+  }
+
+  // Líneas del usuario
+  for (const lin of lineas) {
+    if (!lin) continue;
+    if (lin.tipo === 'linea') {
+      drawLine(lin.m, lin.b, lin.color, xMin, xMax, yMin, yMax);
+      if (lin.pts) lin.pts.forEach(([px, py]) => drawPoint(px, py, lin.color));
+    } else if (lin.tipo === 'vertical') {
+      const px = u2px(lin.x, 'x');
+      ctx.strokeStyle = lin.color; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, H); ctx.stroke();
+    } else if (lin.tipo === 'punto') {
+      drawPoint(lin.x, lin.y, lin.color);
+    }
+  }
+}
+
+function drawGrid(xMin, xMax, yMin, yMax, step, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  // Verticales
+  let ix = Math.ceil(xMin / step) * step;
+  while (ix <= xMax + step) {
+    const px = u2px(ix, 'x');
+    ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, cv.height); ctx.stroke();
+    ix += step;
+  }
+  // Horizontales
+  let iy = Math.ceil(yMin / step) * step;
+  while (iy <= yMax + step) {
+    const py = u2px(iy, 'y');
+    ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(cv.width, py); ctx.stroke();
+    iy += step;
+  }
+}
+
+function drawLabels(xMin, xMax, yMin, yMax, step, ox, oy) {
+  ctx.fillStyle = TEXT_DIM;
+  ctx.font = '10px Consolas, monospace';
+
+  // Eje X
+  let ix = Math.ceil(xMin / step) * step;
+  while (ix <= xMax + step) {
+    if (Math.abs(ix) > 1e-9) {
+      const px = u2px(ix, 'x');
+      const ly = Math.min(Math.max(oy + 4, 4), cv.height - 14);
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(fmt(ix, step), px, ly);
+    }
+    ix += step;
+  }
+
+  // Eje Y
+  let iy = Math.ceil(yMin / step) * step;
+  while (iy <= yMax + step) {
+    if (Math.abs(iy) > 1e-9) {
+      const py = u2px(iy, 'y');
+      const lx = Math.min(Math.max(ox + 4, 4), cv.width - 36);
+      ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(fmt(iy, step), lx, py);
+    }
+    iy += step;
+  }
+}
+
+function drawLine(m, b, color, xMin, xMax, yMin, yMax) {
+  // Calcular puntos de corte con los bordes del viewport
+  const pts = [];
+  for (const x of [xMin, xMax]) {
+    const y = m * x + b;
+    if (y >= yMin && y <= yMax) pts.push([x, y]);
+  }
+  for (const y of [yMin, yMax]) {
+    if (m !== 0) {
+      const x = (y - b) / m;
+      if (x >= xMin && x <= xMax) pts.push([x, y]);
+    }
+  }
+  if (pts.length < 2) return;
+
+  // Para m=0 (horizontal) los dos puntos de corte ya están en xMin y xMax
+  pts.sort((a, b) => a[0] - b[0]);
+  const [p1, p2] = [pts[0], pts[pts.length - 1]];
+
+  ctx.strokeStyle = color; ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(u2px(p1[0], 'x'), u2px(p1[1], 'y'));
+  ctx.lineTo(u2px(p2[0], 'x'), u2px(p2[1], 'y'));
+  ctx.stroke();
+
+  // Punto intersección eje Y (b)
+  if (b >= yMin && b <= yMax) {
+    const bx = u2px(0, 'x'), by = u2px(b, 'y');
+    ctx.fillStyle = color;
+    ctx.beginPath(); ctx.arc(bx, by, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = BG;
+    ctx.beginPath(); ctx.arc(bx, by, 2, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = color;
+    ctx.font = '10px Consolas, monospace';
+    ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText(`b=${+b.toPrecision(4)}`, bx + 8, by);
+  }
+
+  // Punto intersección eje X (raíz)
+  if (m !== 0) {
+    const xi = -b / m;
+    if (xi >= xMin && xi <= xMax) {
+      const xp = u2px(xi, 'x'), yp = u2px(0, 'y');
+      ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(xp, yp, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = BG;
+      ctx.beginPath(); ctx.arc(xp, yp, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = color;
+      ctx.font = '10px Consolas, monospace';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`x=${+xi.toPrecision(4)}`, xp, yp - 6);
+    }
+  }
+}
+
+function drawPoint(ux, uy, color) {
+  const px = u2px(ux, 'x'), py = u2px(uy, 'y');
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = BG; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(px, py, 5, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = '10px Consolas, monospace';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+  ctx.fillText(`(${+ux.toPrecision(4)}, ${+uy.toPrecision(4)})`, px + 8, py - 4);
+}
+
+// ─── Cálculos y resultados ────────────────────────────────────────────────
+function showResult(txt) {
+  document.getElementById('result-box').textContent = txt;
+}
+
+function calcMB(m, b) {
+  const ang = (Math.atan(m) * 180 / Math.PI).toFixed(4);
+  let txt = `Pendiente:       m = ${+m.toPrecision(7)}\n`;
+  txt    += `Intersec. Y:     b = ${+b.toPrecision(7)}\n`;
+  if (m !== 0)
+    txt  += `Intersec. X:     x = ${+((-b/m).toPrecision(7))}\n`;
+  else
+    txt  += `Intersec. X:     ninguna (horizontal)\n`;
+  txt    += `Ángulo:          θ = ${ang}°`;
+  showResult(txt);
+}
+
+function calc2P(x1, y1, x2, y2) {
+  if (x2 === x1) {
+    showResult(`Recta vertical   x = ${x1}\nPendiente:       indefinida\nIntersec. X:     x = ${x1}\nIntersec. Y:     ninguna`);
+    return;
+  }
+  const m   = (y2 - y1) / (x2 - x1);
+  const b   = y1 - m * x1;
+  const ang = (Math.atan(m) * 180 / Math.PI).toFixed(4);
+  const d   = Math.hypot(x2 - x1, y2 - y1).toPrecision(7);
+  let txt   = `Punto 1:         (${x1}, ${y1})\nPunto 2:         (${x2}, ${y2})\n`;
+  txt      += `Pendiente:       m = ${+m.toPrecision(7)}\n`;
+  txt      += `Intersec. Y:     b = ${+b.toPrecision(7)}\n`;
+  if (m !== 0)
+    txt    += `Intersec. X:     x = ${+((-b/m).toPrecision(7))}\n`;
+  else
+    txt    += `Intersec. X:     ninguna (horizontal)\n`;
+  txt      += `Ángulo:          θ = ${ang}°\nDistancia:       d = ${d}`;
+  showResult(txt);
+}
+
+// ─── Agregar línea / punto ─────────────────────────────────────────────────
+function agregar() {
+  const modo  = document.querySelector('input[name=modo]:checked').value;
+  const color = LINE_COLORS[lineas.length % LINE_COLORS.length];
+  let obj, label;
+
+  try {
+    if (modo === 'mb') {
+      const m = parseFloat(document.getElementById('ent-m').value);
+      const b = parseFloat(document.getElementById('ent-b').value);
+      if (isNaN(m) || isNaN(b)) throw new Error();
+      calcMB(m, b);
+      obj   = { tipo:'linea', m, b, color };
+      const sign = b >= 0 ? '+' : '−';
+      label = `y = ${+m.toPrecision(4)}x ${sign} ${+Math.abs(b).toPrecision(4)}`;
+
+    } else if (modo === '2p') {
+      const x1 = parseFloat(document.getElementById('ent-x1').value);
+      const y1 = parseFloat(document.getElementById('ent-y1').value);
+      const x2 = parseFloat(document.getElementById('ent-x2').value);
+      const y2 = parseFloat(document.getElementById('ent-y2').value);
+      if ([x1,y1,x2,y2].some(isNaN)) throw new Error();
+      calc2P(x1, y1, x2, y2);
+      if (x2 === x1) {
+        obj   = { tipo:'vertical', x:x1, color };
+        label = `x = ${x1}`;
+      } else {
+        const m = (y2 - y1) / (x2 - x1);
+        const b = y1 - m * x1;
+        obj   = { tipo:'linea', m, b, color, pts:[[x1,y1],[x2,y2]] };
+        const sign = b >= 0 ? '+' : '−';
+        label = `y=${+m.toPrecision(3)}x ${sign} ${+Math.abs(b).toPrecision(3)}`;
+      }
+
+    } else {
+      const px = parseFloat(document.getElementById('ent-px').value);
+      const py = parseFloat(document.getElementById('ent-py').value);
+      if (isNaN(px) || isNaN(py)) throw new Error();
+      obj   = { tipo:'punto', x:px, y:py, color };
+      label = `(${px}, ${py})`;
+      showResult(`Punto:   (${px}, ${py})`);
+    }
+  } catch(e) {
+    alert('Verifica que los valores sean numéricos.');
+    return;
+  }
+
+  const idx = lineas.length;
+  lineas.push(obj);
+  addLineRow(label, color, idx);
+  redraw();
+}
+
+function addLineRow(label, color, idx) {
+  const list = document.getElementById('lines-list');
+  const row  = document.createElement('div');
+  row.className = 'line-row';
+  row.dataset.idx = idx;
+
+  const dot = document.createElement('div');
+  dot.className = 'line-dot';
+  dot.style.background = color;
+
+  const lbl = document.createElement('span');
+  lbl.className = 'line-label';
+  lbl.textContent = label;
+
+  const btn = document.createElement('button');
+  btn.className = 'line-remove';
+  btn.textContent = '✕';
+  btn.title = 'Eliminar';
+  btn.onclick = () => {
+    lineas[idx] = null;
+    row.remove();
+    redraw();
+  };
+
+  row.appendChild(dot);
+  row.appendChild(lbl);
+  row.appendChild(btn);
+  list.appendChild(row);
+}
+
+function limpiar() {
+  lineas = [];
+  document.getElementById('lines-list').innerHTML = '';
+  showResult('');
+  redraw();
+}
+
+function centrar() {
+  offsetX = 0; offsetY = 0;
+  redraw();
+}
+
+function zoomIn() {
+  zoom = Math.min(zoom * 1.25, 400);
+  updateZoomLabel();
+  redraw();
+}
+
+function zoomOut() {
+  zoom = Math.max(zoom / 1.25, 8);
+  updateZoomLabel();
+  redraw();
+}
+
+function updateZoomLabel() {
+  document.getElementById('zoom-label').textContent =
+    `1 unidad = ${zoom.toFixed(1)} px  (1:1)`;
+}
+
+// ─── Preview en tiempo real ────────────────────────────────────────────────
+function preview() {
+  const modo = document.querySelector('input[name=modo]:checked').value;
+  try {
+    if (modo === 'mb') {
+      const m = parseFloat(document.getElementById('ent-m').value);
+      const b = parseFloat(document.getElementById('ent-b').value);
+      if (!isNaN(m) && !isNaN(b)) calcMB(m, b);
+    } else if (modo === '2p') {
+      const x1 = parseFloat(document.getElementById('ent-x1').value);
+      const y1 = parseFloat(document.getElementById('ent-y1').value);
+      const x2 = parseFloat(document.getElementById('ent-x2').value);
+      const y2 = parseFloat(document.getElementById('ent-y2').value);
+      if (![x1,y1,x2,y2].some(isNaN)) calc2P(x1, y1, x2, y2);
+    }
+  } catch(e) {}
+}
+
+// ─── Toggle de modo ────────────────────────────────────────────────────────
+document.querySelectorAll('input[name=modo]').forEach(rb => {
+  rb.addEventListener('change', () => {
+    document.querySelectorAll('.input-frame').forEach(f => f.classList.remove('active'));
+    const map = { mb:'frame-mb', '2p':'frame-2p', pt:'frame-pt' };
+    document.getElementById(map[rb.value]).classList.add('active');
+    showResult('');
+  });
+});
+
+// ─── Eventos de inputs ─────────────────────────────────────────────────────
+document.querySelectorAll('input[type=number]').forEach(inp => {
+  inp.addEventListener('keyup', e => { if (e.key === 'Enter') agregar(); else preview(); });
+  inp.addEventListener('input', preview);
+});
+
+// ─── Eventos del canvas: arrastre ─────────────────────────────────────────
+cv.addEventListener('pointerdown', e => {
+  dragging     = true;
+  dragStartPx  = [e.clientX, e.clientY];
+  dragStartOff = [offsetX, offsetY];
+  cv.setPointerCapture(e.pointerId);
+});
+
+cv.addEventListener('pointermove', e => {
+  const ux = px2u(e.offsetX, 'x');
+  const uy = px2u(e.offsetY, 'y');
+  document.getElementById('statusbar').textContent =
+    `x = ${ux.toFixed(4)}   y = ${uy.toFixed(4)}   |   zoom = ${zoom.toFixed(1)} px/u`;
+
+  if (!dragging) return;
+  const dx = (e.clientX - dragStartPx[0]) / zoom;
+  const dy = (e.clientY - dragStartPx[1]) / zoom;
+  offsetX = dragStartOff[0] - dx;
+  offsetY = dragStartOff[1] + dy;
+  redraw();
+});
+
+cv.addEventListener('pointerup',    () => { dragging = false; });
+cv.addEventListener('pointerleave', () => { dragging = false; });
+
+// ─── Zoom con rueda ────────────────────────────────────────────────────────
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+  const cx = px2u(e.offsetX, 'x');
+  const cy = px2u(e.offsetY, 'y');
+  zoom = Math.min(Math.max(zoom * factor, 8), 400);
+  offsetX = cx - (e.offsetX - cv.width  / 2) / zoom;
+  offsetY = cy + (e.offsetY - cv.height / 2) / zoom;
+  updateZoomLabel();
+  redraw();
+}, { passive: false });
+
+// ─── Zoom táctil (pinch) ───────────────────────────────────────────────────
+let lastTouchDist = null;
+cv.addEventListener('touchstart', e => {
+  if (e.touches.length === 2) {
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    lastTouchDist = Math.hypot(dx, dy);
+  }
+}, { passive: true });
+
+cv.addEventListener('touchmove', e => {
+  if (e.touches.length === 2 && lastTouchDist !== null) {
+    e.preventDefault();
+    const dx = e.touches[0].clientX - e.touches[1].clientX;
+    const dy = e.touches[0].clientY - e.touches[1].clientY;
+    const dist = Math.hypot(dx, dy);
+    const factor = dist / lastTouchDist;
+    zoom = Math.min(Math.max(zoom * factor, 8), 400);
+    lastTouchDist = dist;
+    updateZoomLabel();
+    redraw();
+  }
+}, { passive: false });
+
+cv.addEventListener('touchend', () => { lastTouchDist = null; });
+
+// ─── Init ──────────────────────────────────────────────────────────────────
+resize();
+</script>
+</body>
+</html>
